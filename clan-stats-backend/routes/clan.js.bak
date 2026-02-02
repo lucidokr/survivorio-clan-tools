@@ -1,0 +1,99 @@
+const express = require('express');
+const router = express.Router();
+const multer = require('multer');
+const Clan = require('../models/Clan');
+const OCRService = require('../services/ocrService');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, 'clan-' + Date.now() + '-' + file.originalname);
+  }
+});
+
+const upload = multer({ storage: storage });
+
+// Register a new clan with screenshot verification
+router.post('/register', upload.single('screenshot'), async (req, res) => {
+  try {
+    const { name, tag, description } = req.body;
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'Screenshot is required' });
+    }
+
+    // Extract text from screenshot
+    const extractedText = await OCRService.extractTextFromImage(req.file.path);
+    
+    // Extract clan ID from the text
+    const clanId = OCRService.extractClanId(extractedText);
+    
+    if (!clanId) {
+      return res.status(400).json({ error: 'Could not extract clan ID from screenshot' });
+    }
+
+    // Check if clan already exists
+    const existingClan = await Clan.findOne({ $or: [{ clanId }, { name }] });
+    if (existingClan) {
+      return res.status(400).json({ error: 'Clan already exists' });
+    }
+
+    // Create new clan
+    const clan = new Clan({
+      name,
+      clanId,
+      tag,
+      description,
+      screenshot: req.file.path
+    });
+
+    await clan.save();
+    
+    res.status(201).json({
+      message: 'Clan registered successfully',
+      clan: {
+        id: clan._id,
+        name: clan.name,
+        clanId: clan.clanId,
+        tag: clan.tag
+      }
+    });
+  } catch (error) {
+    console.error('Clan registration error:', error);
+    res.status(500).json({ error: 'Failed to register clan' });
+  }
+});
+
+// Get all clans
+router.get('/', async (req, res) => {
+  try {
+    const clans = await Clan.find({ isActive: true })
+      .select('name clanId tag createdAt')
+      .sort({ createdAt: -1 });
+    
+    res.json(clans);
+  } catch (error) {
+    console.error('Get clans error:', error);
+    res.status(500).json({ error: 'Failed to fetch clans' });
+  }
+});
+
+// Get clan by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const clan = await Clan.findById(req.params.id);
+    
+    if (!clan) {
+      return res.status(404).json({ error: 'Clan not found' });
+    }
+    
+    res.json(clan);
+  } catch (error) {
+    console.error('Get clan error:', error);
+    res.status(500).json({ error: 'Failed to fetch clan' });
+  }
+});
+
+module.exports = router;

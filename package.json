@@ -1,0 +1,36 @@
+{
+  "name": "clan-stats-tracker",
+  "version": "1.0.0",
+  "description": "Clan Statistics Tracker with OCR - Full stack application",
+  "main": "index.js",
+  "scripts": {
+    "install:all": "npm run install:backend && npm run install:frontend",
+    "install:backend": "cd clan-stats-backend && npm install",
+    "install:frontend": "cd clan-stats-frontend && npm install",
+    "start": "npm run start:backend",
+    "start:backend": "cd clan-stats-backend && npm run dev",
+    "start:frontend": "cd clan-stats-frontend && npm start",
+    "start:both": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "dev": "npm run install:all && npm run start:both"
+  },
+  "keywords": [
+    "clan",
+    "statistics",
+    "ocr",
+    "gaming",
+    "react",
+    "nodejs",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "string-similarity": "^4.0.4"
+  }
+}

@@ -1,0 +1,151 @@
+const express = require('express');
+const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const Member = require('../models/Member');
+const Clan = require('../models/Clan');
+const CoordinateOCRService = require('../services/coordinateOCRService');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+
+const upload = multer({ storage: storage });
+
+// Preview members from screenshot with coordinates
+router.post('/preview', upload.single('screenshot'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Screenshot is required' });
+    }
+
+    const { clanId, useCoordinates = true } = req.body;
+
+    if (!clanId) {
+      return res.status(400).json({ error: 'Clan ID is required' });
+    }
+
+    // Verify clan exists
+    const clan = await Clan.findById(clanId);
+    if (!clan) {
+      return res.status(404).json({ error: 'Clan not found' });
+    }
+
+    console.log('Processing member import preview with coordinates...');
+
+    let extractedText;
+    let members;
+    let visionData = null;
+
+    if (useCoordinates) {
+      // Get real image dimensions and coordinates
+      const coordinates = await CoordinateOCRService.getMemberListCoordinates(req.file.path);
+
+      const visionResponse = await CoordinateOCRService.extractWithCoordinates(req.file.path, coordinates);
+      extractedText = visionResponse.text;
+      visionData = visionResponse.fullResponse;
+      members = CoordinateOCRService.parseClanMembersFromCoordinates(extractedText, clan.tag, visionData);
+    } else {
+      // Fallback to full image OCR
+      extractedText = await CoordinateOCRService.extractTextFromImage(req.file.path);
+      members = CoordinateOCRService.parseClanMembersFromCoordinates(extractedText, clan.tag);
+    }
+
+    // Check for existing members
+    const existingMembers = await Member.find({
+      clan: clanId,
+      isActive: true
+    });
+
+    const existingNames = new Set(existingMembers.map(m => m.playerName.toLowerCase()));
+
+    // Categorize members
+    const newMembers = members.filter(m => !existingNames.has(m.playerName.toLowerCase()));
+    const existingMembersFound = members.filter(m => existingNames.has(m.playerName.toLowerCase()));
+
+    res.json({
+      success: true,
+      extractedText: extractedText,
+      visionData: visionData, // Full Google Vision response (null if not using coordinates)
+      members: members,
+      newMembers: newMembers,
+      existingMembersFound: existingMembersFound,
+      totalFound: members.length,
+      clanInfo: {
+        name: clan.name,
+        tag: clan.tag
+      }
+    });
+
+  } catch (error) {
+    console.error('Preview error:', error);
+    res.status(500).json({ error: 'Failed to process screenshot' });
+  }
+});
+
+// Import confirmed members
+router.post('/import', async (req, res) => {
+  try {
+    const { clanId, members } = req.body;
+
+    if (!clanId || !members || !Array.isArray(members)) {
+      return res.status(400).json({ error: 'Invalid request data' });
+    }
+
+    // Verify clan exists
+    const clan = await Clan.findById(clanId);
+    if (!clan) {
+      return res.status(404).json({ error: 'Clan not found' });
+    }
+
+    // Check for existing members
+    const existingMembers = await Member.find({
+      clan: clanId,
+      isActive: true
+    });
+
+    const existingNames = new Set(existingMembers.map(m => m.playerName.toLowerCase()));
+
+    // Only import new members
+    const newMembers = members.filter(m => !existingNames.has(m.playerName.toLowerCase()));
+
+    if (newMembers.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No new members to import',
+        importedCount: 0
+      });
+    }
+
+    // Create new members
+    const memberDocs = newMembers.map(member => ({
+      playerName: member.playerName,
+      clan: clanId,
+      level: member.level || 1,
+      atk: member.atk || 0,
+      isActive: true,
+      joinDate: new Date()
+    }));
+
+    const savedMembers = await Member.insertMany(memberDocs);
+
+    res.json({
+      success: true,
+      message: `Successfully imported ${savedMembers.length} new members`,
+      importedCount: savedMembers.length,
+      members: savedMembers
+    });
+
+  } catch (error) {
+    console.error('Import error:', error);
+    res.status(500).json({ error: 'Failed to import members' });
+  }
+});
+
+module.exports = router;

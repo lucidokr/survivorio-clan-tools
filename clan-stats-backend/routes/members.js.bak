@@ -1,0 +1,198 @@
+const express = require('express');
+const router = express.Router();
+const Member = require('../models/Member');
+const Clan = require('../models/Clan');
+
+// Create a new member
+router.post('/', async (req, res) => {
+  try {
+    const { playerName, playerId, phoneNumber, discordNickname, clanId } = req.body;
+
+    // Verify clan exists
+    const clan = await Clan.findById(clanId);
+    if (!clan) {
+      return res.status(404).json({ error: 'Clan not found' });
+    }
+
+    // Check if member already exists
+    const existingMember = await Member.findOne({
+      $or: [{ playerId }, { playerName, clan: clanId }]
+    });
+
+    if (existingMember) {
+      return res.status(400).json({ error: 'Member already exists' });
+    }
+
+    const member = new Member({
+      playerName,
+      playerId,
+      phoneNumber,
+      discordNickname,
+      clan: clanId
+    });
+
+    await member.save();
+
+    res.status(201).json({
+      message: 'Member created successfully',
+      member
+    });
+  } catch (error) {
+    console.error('Create member error:', error);
+    res.status(500).json({ error: 'Failed to create member' });
+  }
+});
+
+// Get all members of a clan
+router.get('/clan/:clanId', async (req, res) => {
+  try {
+    const members = await Member.find({
+      clan: req.params.clanId,
+      isActive: true
+    }).sort({ playerName: 1 });
+
+    res.json(members);
+  } catch (error) {
+    console.error('Get members error:', error);
+    res.status(500).json({ error: 'Failed to fetch members' });
+  }
+});
+
+// Update member
+router.put('/:id', async (req, res) => {
+  try {
+    const { playerName, phoneNumber, discordNickname } = req.body;
+
+    const member = await Member.findByIdAndUpdate(
+      req.params.id,
+      { playerName, phoneNumber, discordNickname },
+      { new: true, runValidators: true }
+    );
+
+    if (!member) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    res.json({
+      message: 'Member updated successfully',
+      member
+    });
+  } catch (error) {
+    console.error('Update member error:', error);
+    res.status(500).json({ error: 'Failed to update member' });
+  }
+});
+
+// Delete member (soft delete)
+router.delete('/:id', async (req, res) => {
+  try {
+    const member = await Member.findByIdAndUpdate(
+      req.params.id,
+      { isActive: false },
+      { new: true }
+    );
+
+    if (!member) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    res.json({ message: 'Member deleted successfully' });
+  } catch (error) {
+    console.error('Delete member error:', error);
+    res.status(500).json({ error: 'Failed to delete member' });
+  }
+});
+
+// Get member by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const member = await Member.findById(req.params.id).populate('clan', 'name tag');
+
+    if (!member) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    res.json(member);
+  } catch (error) {
+    console.error('Get member error:', error);
+    res.status(500).json({ error: 'Failed to fetch member' });
+  }
+});
+
+// Bulk update members
+router.post('/bulk', async (req, res) => {
+  try {
+    const { clanId, members } = req.body;
+
+    if (!clanId) {
+      return res.status(400).json({ error: 'Clan ID is required' });
+    }
+
+    const results = {
+      created: 0,
+      updated: 0,
+      errors: []
+    };
+
+    for (const memberData of members) {
+      // Skip empty entries
+      if (!memberData.playerName || !memberData.playerId) continue;
+
+      try {
+        if (memberData._id) {
+          // Update existing
+          await Member.findByIdAndUpdate(
+            memberData._id,
+            {
+              playerName: memberData.playerName,
+              playerId: memberData.playerId,
+              phoneNumber: memberData.phoneNumber,
+              discordNickname: memberData.discordNickname
+            },
+            { runValidators: true }
+          );
+          results.updated++;
+        } else {
+          // Create new
+          const existing = await Member.findOne({ playerId: memberData.playerId });
+          if (existing) {
+            if (existing.clan.toString() === clanId) {
+              await Member.findByIdAndUpdate(existing._id, {
+                playerName: memberData.playerName,
+                phoneNumber: memberData.phoneNumber,
+                discordNickname: memberData.discordNickname
+              });
+              results.updated++;
+            } else {
+              results.errors.push(`Player ID ${memberData.playerId} already in another clan`);
+            }
+          } else {
+            const newMember = new Member({
+              playerName: memberData.playerName,
+              playerId: memberData.playerId,
+              phoneNumber: memberData.phoneNumber,
+              discordNickname: memberData.discordNickname,
+              clan: clanId
+            });
+            await newMember.save();
+            results.created++;
+          }
+        }
+      } catch (err) {
+        console.error(`Error processing member ${memberData.playerName}:`, err);
+        results.errors.push(`Error for ${memberData.playerName}: ${err.message}`);
+      }
+    }
+
+    res.json({
+      message: 'Bulk operation completed',
+      results
+    });
+
+  } catch (error) {
+    console.error('Bulk update error:', error);
+    res.status(500).json({ error: 'Failed to process bulk update' });
+  }
+});
+
+module.exports = router;
