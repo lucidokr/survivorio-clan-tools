@@ -9,11 +9,21 @@ if (process.env.FIREBASE_CREDS) {
   try {
     serviceAccount = JSON.parse(process.env.FIREBASE_CREDS);
   } catch (err) {
-    console.error('Failed to parse FIREBASE_CREDS env var:', err);
-    throw err;
+    console.error('Failed to parse FIREBASE_CREDS env var, falling back to local file:', err);
+    try {
+      serviceAccount = require('../firebase-credentials.json');
+    } catch (e) {
+      console.warn('No local firebase-credentials.json found. Relying on Application Default Credentials.');
+      serviceAccount = null;
+    }
   }
 } else {
-  serviceAccount = require('../firebase-credentials.json');
+  try {
+    serviceAccount = require('../firebase-credentials.json');
+  } catch (err) {
+    console.warn('No local firebase-credentials.json found and FIREBASE_CREDS not set. Relying on Application Default Credentials.');
+    serviceAccount = null;
+  }
 }
 
 class OCRService {
