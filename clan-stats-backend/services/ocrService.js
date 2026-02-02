@@ -1,7 +1,20 @@
 const axios = require('axios');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
-const serviceAccount = require('../firebase-credentials.json');
+
+// Load service account either from FIREBASE_CREDS env var (JSON string)
+// or fall back to the local firebase-credentials.json file.
+let serviceAccount;
+if (process.env.FIREBASE_CREDS) {
+  try {
+    serviceAccount = JSON.parse(process.env.FIREBASE_CREDS);
+  } catch (err) {
+    console.error('Failed to parse FIREBASE_CREDS env var:', err);
+    throw err;
+  }
+} else {
+  serviceAccount = require('../firebase-credentials.json');
+}
 
 class OCRService {
   static async getAccessToken() {
