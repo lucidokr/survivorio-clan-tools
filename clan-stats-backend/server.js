@@ -9,6 +9,7 @@ const { db } = require('./services/firebaseService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Middleware
 app.use(cors());
@@ -48,7 +49,17 @@ app.use('/api/results', resultRoutes);
 app.use('/api/members-import', membersImportRoutes);
 app.use('/api/community', communityRoutes);
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log('Connected to Firebase Firestore');
+// Global error handlers to aid debugging in Cloud Run
+process.on('unhandledRejection', (reason, p) => {
+  console.error('Unhandled Rejection at:', p, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception thrown:', err);
+  process.exit(1);
+});
+
+app.listen(PORT, HOST, () => {
+  console.log(`Server is running and listening on http://${HOST}:${PORT}`);
+  console.log('Connected to Firebase Firestore (if credentials available)');
 });
