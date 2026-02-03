@@ -61,7 +61,13 @@ class OCRService {
       console.log(`Using Google Vision API for OCR with ${detectionType}...`);
 
       // Convert image to base64
-      const buffer = fs.readFileSync(imagePath);
+      // `imagePath` may be a Buffer (in-memory upload) or a filesystem path string
+      let buffer;
+      if (Buffer.isBuffer(imagePath)) {
+        buffer = imagePath;
+      } else {
+        buffer = fs.readFileSync(imagePath);
+      }
       const base64Image = buffer.toString('base64');
 
       // Get access token from service account

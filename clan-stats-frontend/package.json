@@ -23,7 +23,9 @@
         "start": "react-scripts start",
         "build": "react-scripts build",
         "test": "react-scripts test",
-        "eject": "react-scripts eject"
+        "eject": "react-scripts eject",
+        "release": "npm run build && cd .. && firebase deploy --only hosting -- project clan-tools-485613",
+        "deploy": "npm run release"
     },
     "eslintConfig": {
         "extends": [

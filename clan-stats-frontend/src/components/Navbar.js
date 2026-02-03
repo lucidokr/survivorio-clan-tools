@@ -44,9 +44,14 @@ const Navbar = () => {
     <AppBar position="static">
       <Toolbar>
         <TrendingUpIcon sx={{ mr: 2 }} />
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          Clan Stats Tracker
-        </Typography>
+        <Box sx={{ flexGrow: 1 }}>
+          <Typography variant="h6" component="div">
+            Survivor Clan Tracker
+          </Typography>
+          <Typography variant="caption" component="div" color="text.secondary">
+            Sponsored by UTC
+          </Typography>
+        </Box>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           <Button
             color="inherit"

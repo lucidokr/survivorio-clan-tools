@@ -303,7 +303,7 @@ const MyClan = () => {
                                     <Box sx={{ mt: 1 }}>
                                         <Typography variant="body2">
                                             {selectedCommunityId
-                                                ? `This clan is part of: ${ (communities.find(c => c.id === selectedCommunityId) || {}).name || 'Unknown' }`
+                                                ? `This clan is part of: ${(communities.find(c => c.id === selectedCommunityId) || {}).name || 'Unknown'}`
                                                 : 'This clan is not part of any community.'}
                                         </Typography>
                                     </Box>

@@ -14,15 +14,28 @@ const HOST = process.env.HOST || '0.0.0.0';
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static('uploads'));
+const fs = require('fs');
+const uploadsDir = path.join(process.cwd(), 'uploads');
+// Ensure uploads directory exists (important for Cloud Run / container environments)
+if (!fs.existsSync(uploadsDir)) {
+  try {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log('Created uploads directory at', uploadsDir);
+  } catch (err) {
+    console.error('Failed to create uploads directory', err);
+  }
+}
+app.use('/uploads', express.static(uploadsDir));
 
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
+    // sanitize filename by replacing path separators and trimming
+    const safeName = file.originalname.replace(/[/\\]/g, '_');
+    cb(null, Date.now() + '-' + safeName);
   }
 });
 

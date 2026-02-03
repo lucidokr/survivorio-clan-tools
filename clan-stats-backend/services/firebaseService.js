@@ -221,7 +221,7 @@ const ClanService = {
 };
 
 // Cascade delete helper for clans
-ClanService.deleteClanCascade = async function(clanId) {
+ClanService.deleteClanCascade = async function (clanId) {
     if (!clanId) throw new Error('clanId required');
 
     // Delete members in batches

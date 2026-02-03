@@ -1,4 +1,6 @@
-# Clan Statistics Tracker
+# Survivor Clan Tracker
+
+Sponsored by UTC
 
 A web application for tracking clan statistics using OCR to extract game results from screenshots.
 

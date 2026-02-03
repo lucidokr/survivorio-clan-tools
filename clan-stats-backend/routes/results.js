@@ -23,7 +23,10 @@ const verifyClanAccess = async (clanId, userId, userEmail) => {
   return { clan, role: access.role };
 };
 
-const storage = multer.diskStorage({
+// Keep disk storage available for routes that may want to persist files,
+// but for immediate OCR processing we will use memory storage to avoid
+// writing to disk in production (Cloud Run).
+const diskStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/');
   },
@@ -32,10 +35,13 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ storage: diskStorage });
+
+// Memory upload for in-memory processing (no disk writes)
+const memoryUpload = multer({ storage: multer.memoryStorage() });
 
 // Extract text from screenshot (OCR Preview) - Handles single or multiple files (requires auth)
-router.post('/extract', authMiddleware, upload.array('screenshot', 6), async (req, res) => {
+router.post('/extract', authMiddleware, memoryUpload.array('screenshot', 6), async (req, res) => {
   try {
     const { clanId } = req.body;
     const useDocumentDetection = true; // Always use DOCUMENT_TEXT_DETECTION
@@ -71,8 +77,8 @@ router.post('/extract', authMiddleware, upload.array('screenshot', 6), async (re
 
     // Process each file
     for (const file of req.files) {
-      // Extract text from screenshot
-      const extractedText = await OCRService.extractTextFromImage(file.path, useDocumentDetection);
+      // Extract text from screenshot (process buffer directly)
+      const extractedText = await OCRService.extractTextFromImage(file.buffer, useDocumentDetection);
 
       // Parse member results
       const rawResults = OCRService.parseMemberResults(extractedText, clanTag);
@@ -194,7 +200,7 @@ router.post('/bulk', authMiddleware, async (req, res) => {
 
 
 // Upload results via screenshot (Legacy/Direct) - requires auth
-router.post('/upload', authMiddleware, upload.single('screenshot'), async (req, res) => {
+router.post('/upload', authMiddleware, memoryUpload.single('screenshot'), async (req, res) => {
   try {
     const { clanId, week } = req.body;
 
@@ -209,8 +215,8 @@ router.post('/upload', authMiddleware, upload.single('screenshot'), async (req, 
     }
     const clan = access.clan;
 
-    // Extract text from screenshot
-    const extractedText = await OCRService.extractTextFromImage(req.file.path);
+    // Extract text from screenshot (process buffer directly without persisting)
+    const extractedText = await OCRService.extractTextFromImage(req.file.buffer);
 
     // Parse member results
     const parsedResults = OCRService.parseMemberResults(extractedText, clan.tag);
@@ -243,7 +249,7 @@ router.post('/upload', authMiddleware, upload.single('screenshot'), async (req, 
           clanId,
           score: resultData.score,
           week,
-          screenshot: req.file.path,
+          screenshot: null,
           isManualEntry: false
         });
 
