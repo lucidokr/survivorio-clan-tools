@@ -56,6 +56,38 @@ const Statistics = () => {
 
   const weekOptions = [4, 8, 12, 16, 20, 24];
 
+  // Persistence keys/helpers
+  const STATS_KEYS = {
+    scope: 'clanTools:stats_scope',
+    selectedClan: 'clanTools:stats_selectedClan',
+    selectedCommunity: 'clanTools:stats_selectedCommunity',
+    weeksToShow: 'clanTools:stats_weeksToShow',
+    activeTab: 'clanTools:stats_activeTab'
+  };
+  const readSaved = (key) => sessionStorage.getItem(key) || localStorage.getItem(key);
+  const saveLocal = (key, value) => {
+    try {
+      sessionStorage.setItem(key, String(value));
+      localStorage.setItem(key, String(value));
+    } catch (e) {}
+  };
+
+  const getColorForString = (str) => {
+    if (!str) return { color: '#e0e0e0', textColor: '#111' };
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+    const color = '#' + '00000'.substring(0, 6 - c.length) + c;
+    const r = parseInt(color.substr(1, 2), 16) / 255;
+    const g = parseInt(color.substr(3, 2), 16) / 255;
+    const b = parseInt(color.substr(5, 2), 16) / 255;
+    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    const textColor = lum > 0.6 ? '#111' : '#fff';
+    return { color, textColor };
+  };
+
   useEffect(() => {
     fetchClans();
     fetchCommunities();
@@ -72,7 +104,12 @@ const Statistics = () => {
       const response = await api.clan.getMyClans();
       setClans(response);
       if (response.length > 0) {
-        setSelectedClan(response[0]._id);
+        const saved = readSaved(STATS_KEYS.selectedClan);
+        if (saved && response.some(c => c._id === saved)) {
+          setSelectedClan(saved);
+        } else {
+          setSelectedClan(response[0]._id);
+        }
       }
     } catch (error) {
       console.error('Error fetching clans:', error);
@@ -83,11 +120,30 @@ const Statistics = () => {
     try {
       const response = await api.community.getAll();
       setCommunities(response);
-      if (response.length > 0 && !selectedCommunity) setSelectedCommunity(response[0].id);
+      if (response.length > 0) {
+        const saved = readSaved(STATS_KEYS.selectedCommunity);
+        if (saved && response.some(c => c.id === saved)) {
+          setSelectedCommunity(saved);
+        } else if (!selectedCommunity) {
+          setSelectedCommunity(response[0].id);
+        }
+      }
     } catch (err) {
       console.warn('Failed to fetch communities', err);
     }
   };
+
+  // Restore persisted settings
+  useEffect(() => {
+    const savedScope = readSaved(STATS_KEYS.scope);
+    if (savedScope) setScope(savedScope);
+
+    const savedWeeks = readSaved(STATS_KEYS.weeksToShow);
+    if (savedWeeks) setWeeksToShow(Number(savedWeeks));
+
+    const savedTab = readSaved(STATS_KEYS.activeTab);
+    if (savedTab) setActiveTab(Number(savedTab));
+  }, []);
 
   const fetchStatistics = async () => {
     setLoading(true);
@@ -146,7 +202,9 @@ const Statistics = () => {
 
   // Calculate member stats from memberGrowth data
   const getMemberStats = () => {
-    return memberGrowth.map(member => {
+    return memberGrowth
+      .filter(m => m.isActive !== false)
+      .map(member => {
       const scores = member.weeklyScores || [];
       const validScores = scores.filter(s => s.score !== null && s.score !== undefined);
       const totalScore = validScores.reduce((sum, s) => sum + s.score, 0);
@@ -169,6 +227,8 @@ const Statistics = () => {
       return {
         playerName: member.playerName,
         memberId: member.memberId,
+        clanName: member.clanName || null,
+        bossLevel: member.bossLevel || null,
         totalResults: scores.length,
         totalScore,
         averageScore,
@@ -178,7 +238,7 @@ const Statistics = () => {
         totalGrowth: member.totalGrowth,
         avgImprovement: member.avgImprovement
       };
-    }).sort((a, b) => b.totalScore - a.totalScore);
+    }).sort((a, b) => (b.lastScore || 0) - (a.lastScore || 0));
   };
 
   const summary = getSummaryStats();
@@ -201,7 +261,7 @@ const Statistics = () => {
                 select
                 label="Scope"
                 value={scope}
-                onChange={(e) => setScope(e.target.value)}
+                onChange={(e) => { setScope(e.target.value); saveLocal(STATS_KEYS.scope, e.target.value); }}
                 fullWidth
               >
                 <MenuItem value="clan">This Clan</MenuItem>
@@ -214,7 +274,7 @@ const Statistics = () => {
                   select
                   label="Select Clan"
                   value={selectedClan}
-                  onChange={(e) => setSelectedClan(e.target.value)}
+                  onChange={(e) => { setSelectedClan(e.target.value); saveLocal(STATS_KEYS.selectedClan, e.target.value); }}
                   fullWidth
                 >
                   {clans.map((clan) => (
@@ -231,7 +291,7 @@ const Statistics = () => {
                   select
                   label="Select Community"
                   value={selectedCommunity}
-                  onChange={(e) => setSelectedCommunity(e.target.value)}
+                  onChange={(e) => { setSelectedCommunity(e.target.value); saveLocal(STATS_KEYS.selectedCommunity, e.target.value); }}
                   fullWidth
                 >
                   {communities.map((c) => (
@@ -245,7 +305,7 @@ const Statistics = () => {
                 select
                 label="Weeks to Display"
                 value={weeksToShow}
-                onChange={(e) => setWeeksToShow(e.target.value)}
+                onChange={(e) => { setWeeksToShow(Number(e.target.value)); saveLocal(STATS_KEYS.weeksToShow, e.target.value); }}
                 fullWidth
               >
                 {weekOptions.map((w) => (
@@ -282,7 +342,7 @@ const Statistics = () => {
         <>
           {/* Tabs */}
           <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-            <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
+            <Tabs value={activeTab} onChange={(e, newValue) => { setActiveTab(newValue); saveLocal(STATS_KEYS.activeTab, newValue); }}>
               <Tab label="📊 Overall Statistics" />
               <Tab label="👥 Member Statistics" />
             </Tabs>
@@ -314,8 +374,8 @@ const Statistics = () => {
                       console.debug('Rendering Clan Total Score with data:', data);
 
                       return (
-                        <Box sx={{ width: '100%' }}>
-                          <ResponsiveContainer width="100%" height={500}>
+                        <Box sx={{ width: '100%', height: { xs: 300, sm: 400, md: 500 } }}>
+                          <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis dataKey="week" tickFormatter={formatWeekLabel} interval={0} angle={-30} textAnchor="end" height={60} />
@@ -340,7 +400,7 @@ const Statistics = () => {
                       📊 Weekly Growth
                     </Typography>
                     {clanGrowth.length > 0 ? (
-                      <Box sx={{ width: '100%', height: 500 }}>
+                      <Box sx={{ width: '100%', height: { xs: 300, sm: 400, md: 500 } }}>
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={clanGrowth}>
                             <CartesianGrid strokeDasharray="3 3" />
@@ -388,7 +448,7 @@ const Statistics = () => {
                       👥 Average Score per Member
                     </Typography>
                     {weeklyAverages.length > 0 ? (
-                      <Box sx={{ width: '100%', height: 500 }}>
+                      <Box sx={{ width: '100%', height: { xs: 300, sm: 400, md: 500 } }}>
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={weeklyAverages}>
                             <CartesianGrid strokeDasharray="3 3" />
@@ -439,12 +499,13 @@ const Statistics = () => {
                     <Typography variant="h6" gutterBottom>
                       📋 Member Performance Details
                     </Typography>
-                    <TableContainer component={Paper}>
-                      <Table stickyHeader>
+                    <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+                      <Table stickyHeader size="small" sx={{ minWidth: { xs: 720, sm: 900 } }}>
                         <TableHead>
                           <TableRow>
                             <TableCell sx={{ fontWeight: 'bold', backgroundColor: 'background.paper' }}>#</TableCell>
                             <TableCell sx={{ fontWeight: 'bold', backgroundColor: 'background.paper' }}>Player</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold', backgroundColor: 'background.paper' }}>Boss Lv</TableCell>
                             <TableCell sx={{ fontWeight: 'bold', backgroundColor: 'background.paper' }} align="right">Last Score</TableCell>
                             <TableCell sx={{ fontWeight: 'bold', backgroundColor: 'background.paper' }} align="right">Avg Score</TableCell>
                             <TableCell sx={{ fontWeight: 'bold', backgroundColor: 'background.paper' }} align="right">Weeks</TableCell>
@@ -460,7 +521,22 @@ const Statistics = () => {
                               hover
                             >
                               <TableCell>{index + 1}</TableCell>
-                              <TableCell sx={{ fontWeight: 500 }}>{stat.playerName}</TableCell>
+                              <TableCell sx={{ fontWeight: 500 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <span>{stat.playerName}</span>
+                                  {stat.clanName ? (() => {
+                                    const { color, textColor } = getColorForString(stat.clanName);
+                                    return (
+                                      <Chip
+                                        label={stat.clanName}
+                                        size="small"
+                                        sx={{ ml: 0.5, backgroundColor: color, color: textColor, fontWeight: 600 }}
+                                      />
+                                    );
+                                  })() : null}
+                                </Box>
+                              </TableCell>
+                              <TableCell align="center">{stat.bossLevel !== null && stat.bossLevel !== undefined ? stat.bossLevel : '-'}</TableCell>
                               <TableCell align="right" sx={{ color: 'success.main', fontWeight: 'bold' }}>
                                 {stat.lastScore.toLocaleString()}
                               </TableCell>

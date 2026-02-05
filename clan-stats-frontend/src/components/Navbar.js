@@ -10,8 +10,17 @@ import {
   MenuItem,
   IconButton,
   Divider,
-  ListItemIcon
+  ListItemIcon,
+  useTheme,
+  useMediaQuery,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText
 } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
+import CloseIcon from '@mui/icons-material/Close';
 import { Link, useLocation } from 'react-router-dom';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -24,6 +33,10 @@ const Navbar = () => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [anchorEl, setAnchorEl] = React.useState(null);
+  const [navAnchorEl, setNavAnchorEl] = React.useState(null);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const theme = useTheme();
+  const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
 
   const isActive = (path) => location.pathname === path;
 
@@ -40,6 +53,12 @@ const Navbar = () => {
     await logout();
   };
 
+  const handleNavOpen = (event) => setNavAnchorEl(event.currentTarget);
+  const handleNavClose = () => setNavAnchorEl(null);
+
+  const openDrawer = () => setDrawerOpen(true);
+  const closeDrawer = () => setDrawerOpen(false);
+
   return (
     <AppBar position="static">
       <Toolbar>
@@ -53,56 +72,114 @@ const Navbar = () => {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <Button
-            color="inherit"
-            component={Link}
-            to="/"
-            variant={isActive('/') ? 'outlined' : 'text'}
-          >
-            Dashboard
-          </Button>
-          <Button
-            color="inherit"
-            component={Link}
-            to="/my-clan"
-            variant={isActive('/my-clan') ? 'outlined' : 'text'}
-          >
-            My Clan
-          </Button>
-          {user?.email === ADMIN_EMAIL && (
-            <Button
-              color="inherit"
-              component={Link}
-              to="/communities"
-              variant={isActive('/communities') ? 'outlined' : 'text'}
-            >
-              Communities
-            </Button>
+          {!isSmall ? (
+            <>
+              <Button
+                color="inherit"
+                component={Link}
+                to="/"
+                variant={isActive('/') ? 'outlined' : 'text'}
+              >
+                Dashboard
+              </Button>
+              <Button
+                color="inherit"
+                component={Link}
+                to="/my-clan"
+                variant={isActive('/my-clan') ? 'outlined' : 'text'}
+              >
+                My Clan
+              </Button>
+              {user?.email === ADMIN_EMAIL && (
+                <Button
+                  color="inherit"
+                  component={Link}
+                  to="/communities"
+                  variant={isActive('/communities') ? 'outlined' : 'text'}
+                >
+                  Communities
+                </Button>
+              )}
+              
+              <Button
+                color="inherit"
+                component={Link}
+                to="/members"
+                variant={isActive('/members') ? 'outlined' : 'text'}
+              >
+                Members
+              </Button>
+              <Button
+                color="inherit"
+                component={Link}
+                to="/upload-results"
+                variant={isActive('/upload-results') ? 'outlined' : 'text'}
+              >
+                Results
+              </Button>
+              <Button
+                color="inherit"
+                component={Link}
+                to="/statistics"
+                variant={isActive('/statistics') ? 'outlined' : 'text'}
+              >
+                Statistics
+              </Button>
+            </>
+          ) : (
+            <>
+              <IconButton color="inherit" onClick={openDrawer} aria-label="open navigation">
+                <MenuIcon />
+              </IconButton>
+              <Drawer anchor="left" open={drawerOpen} onClose={closeDrawer}>
+                <Box sx={{ width: 260 }} role="presentation">
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1 }}>
+                    <Box>
+                      <Typography variant="h6">Menu</Typography>
+                    </Box>
+                    <IconButton onClick={closeDrawer} aria-label="close navigation">
+                      <CloseIcon />
+                    </IconButton>
+                  </Box>
+                  <Divider />
+                  <List>
+                    <ListItem disablePadding>
+                      <ListItemButton component={Link} to="/" onClick={closeDrawer} selected={isActive('/')}>
+                        <ListItemText primary="Dashboard" />
+                      </ListItemButton>
+                    </ListItem>
+                    <ListItem disablePadding>
+                      <ListItemButton component={Link} to="/my-clan" onClick={closeDrawer} selected={isActive('/my-clan')}>
+                        <ListItemText primary="My Clan" />
+                      </ListItemButton>
+                    </ListItem>
+                    {user?.email === ADMIN_EMAIL && (
+                      <ListItem disablePadding>
+                        <ListItemButton component={Link} to="/communities" onClick={closeDrawer} selected={isActive('/communities')}>
+                          <ListItemText primary="Communities" />
+                        </ListItemButton>
+                      </ListItem>
+                    )}
+                    <ListItem disablePadding>
+                      <ListItemButton component={Link} to="/members" onClick={closeDrawer} selected={isActive('/members')}>
+                        <ListItemText primary="Members" />
+                      </ListItemButton>
+                    </ListItem>
+                    <ListItem disablePadding>
+                      <ListItemButton component={Link} to="/upload-results" onClick={closeDrawer} selected={isActive('/upload-results')}>
+                        <ListItemText primary="Results" />
+                      </ListItemButton>
+                    </ListItem>
+                    <ListItem disablePadding>
+                      <ListItemButton component={Link} to="/statistics" onClick={closeDrawer} selected={isActive('/statistics')}>
+                        <ListItemText primary="Statistics" />
+                      </ListItemButton>
+                    </ListItem>
+                  </List>
+                </Box>
+              </Drawer>
+            </>
           )}
-          <Button
-            color="inherit"
-            component={Link}
-            to="/members"
-            variant={isActive('/members') ? 'outlined' : 'text'}
-          >
-            Members
-          </Button>
-          <Button
-            color="inherit"
-            component={Link}
-            to="/upload-results"
-            variant={isActive('/upload-results') ? 'outlined' : 'text'}
-          >
-            Results
-          </Button>
-          <Button
-            color="inherit"
-            component={Link}
-            to="/statistics"
-            variant={isActive('/statistics') ? 'outlined' : 'text'}
-          >
-            Statistics
-          </Button>
 
           {/* User Menu */}
           <IconButton onClick={handleMenuOpen} sx={{ ml: 2 }}>

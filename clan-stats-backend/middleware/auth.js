@@ -34,6 +34,10 @@ const authMiddleware = async (req, res, next) => {
             emailVerified: decodedToken.email_verified || false
         };
 
+        // Mark admin flag if present in custom claims or match a configured admin email
+        const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'lucido.kristian@gmail.com';
+        req.user.isAdmin = decodedToken.admin === true || (decodedToken.email && decodedToken.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+
         next();
     } catch (error) {
         console.error('Token verification error:', error.code, error.message);
@@ -81,6 +85,8 @@ const optionalAuthMiddleware = async (req, res, next) => {
             picture: decodedToken.picture || null,
             emailVerified: decodedToken.email_verified || false
         };
+        const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'lucido.kristian@gmail.com';
+        req.user.isAdmin = decodedToken.admin === true || (decodedToken.email && decodedToken.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
     } catch (error) {
         req.user = null;
     }

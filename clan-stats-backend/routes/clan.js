@@ -164,6 +164,37 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
+// Admin: get all clans in DB (including inactive when requested)
+router.get('/all', authMiddleware, async (req, res) => {
+  try {
+    // Only admins can access this endpoint
+    if (!req.user || !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Forbidden', message: 'Admin access required' });
+    }
+
+    // Allow optional query param activeOnly=false to include inactive clans
+    const activeOnly = req.query.activeOnly !== 'false';
+
+    const clans = await ClanService.findAll(activeOnly);
+
+    const formattedClans = clans.map(clan => ({
+      _id: clan.id,
+      id: clan.id,
+      name: clan.name,
+      clanId: clan.clanId,
+      tag: clan.tag,
+      ownerId: clan.ownerId,
+      isActive: clan.isActive,
+      createdAt: clan.createdAt
+    }));
+
+    res.json(formattedClans);
+  } catch (error) {
+    console.error('Get all clans error:', error);
+    res.status(500).json({ error: 'Failed to fetch all clans', details: error.message });
+  }
+});
+
 // Get clan by ID (verify ownership)
 router.get('/:id', authMiddleware, verifyClanOwnership, async (req, res) => {
   try {

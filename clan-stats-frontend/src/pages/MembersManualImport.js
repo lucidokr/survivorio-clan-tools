@@ -152,8 +152,8 @@ const MembersManualImport = () => {
             ))}
           </TextField>
 
-          <TableContainer component={Paper} sx={{ mb: 2 }}>
-            <Table>
+          <TableContainer component={Paper} sx={{ mb: 2, overflowX: 'auto' }}>
+            <Table size="small">
               <TableHead>
                 <TableRow>
                   <TableCell>Member Name</TableCell>
@@ -204,11 +204,12 @@ const MembersManualImport = () => {
             </Table>
           </TableContainer>
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
             <Button
               variant="outlined"
               startIcon={<Add />}
               onClick={addMemberRow}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
             >
               Add Member Row
             </Button>
@@ -216,6 +217,7 @@ const MembersManualImport = () => {
               variant="contained"
               onClick={handlePreview}
               disabled={!selectedClan}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
             >
               Preview Import
             </Button>
@@ -230,7 +232,7 @@ const MembersManualImport = () => {
           <Typography variant="body2" paragraph>
             Ready to import {members.filter(m => m.name.trim() && m.level.trim() && m.atk.trim()).length} members:
           </Typography>
-          <TableContainer component={Paper}>
+          <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
             <Table size="small">
               <TableHead>
                 <TableRow>

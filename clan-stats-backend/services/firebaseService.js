@@ -190,9 +190,12 @@ const ClanService = {
         return Array.from(uniqueMap.values());
     },
 
-    async verifyUserAccess(clanId, userId, userEmail) {
+    async verifyUserAccess(clanId, userId, userEmail, isAdmin = false) {
         const clan = await this.findById(clanId);
         if (!clan) return { canAccess: false };
+
+        // Admins have full access
+        if (isAdmin) return { canAccess: true, role: 'admin' };
 
         // Owner
         if (clan.ownerId === userId) {
@@ -510,8 +513,25 @@ const MemberService = {
 
 const ResultService = {
     async create(resultData) {
+        // Normalize numeric and boolean fields to avoid storing strings
+        const normalize = (data) => {
+            const out = { ...data };
+            if (out.score !== undefined && out.score !== null) {
+                const n = Number(out.score);
+                out.score = Number.isFinite(n) ? n : 0;
+            }
+            if (out.bossLevel !== undefined && out.bossLevel !== null) {
+                const n = Number(out.bossLevel);
+                out.bossLevel = Number.isFinite(n) ? n : null;
+            }
+            out.missedBossDay1 = !!out.missedBossDay1;
+            out.missedBossDay2 = !!out.missedBossDay2;
+            out.missedBossDay3 = !!out.missedBossDay3;
+            return out;
+        };
+
         const payload = sanitizeForFirestore({
-            ...resultData,
+            ...normalize(resultData),
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
         const docRef = await db.collection(COLLECTIONS.RESULTS).add(payload);
@@ -538,8 +558,22 @@ const ResultService = {
         const existing = await this.findByMemberClanWeek(memberId, clanId, week);
 
         if (existing) {
+            // Normalize incoming data before update
+            const normalizeUpdate = { ...data };
+            if (normalizeUpdate.score !== undefined && normalizeUpdate.score !== null) {
+                const n = Number(normalizeUpdate.score);
+                normalizeUpdate.score = Number.isFinite(n) ? n : 0;
+            }
+            if (normalizeUpdate.bossLevel !== undefined && normalizeUpdate.bossLevel !== null) {
+                const n = Number(normalizeUpdate.bossLevel);
+                normalizeUpdate.bossLevel = Number.isFinite(n) ? n : null;
+            }
+            normalizeUpdate.missedBossDay1 = !!normalizeUpdate.missedBossDay1;
+            normalizeUpdate.missedBossDay2 = !!normalizeUpdate.missedBossDay2;
+            normalizeUpdate.missedBossDay3 = !!normalizeUpdate.missedBossDay3;
+
             await db.collection(COLLECTIONS.RESULTS).doc(existing.id).update({
-                ...data,
+                ...normalizeUpdate,
                 lastUpdated: admin.firestore.FieldValue.serverTimestamp()
             });
             return this.findById(existing.id);
@@ -605,7 +639,7 @@ const ResultService = {
         const members = {};
 
         for (const memberId of memberIds) {
-            const member = await MemberService.findById(memberId);
+            const member = await MemberService.findByIdWithClan(memberId);
             if (member) {
                 members[memberId] = member;
             }

@@ -231,7 +231,7 @@ const MembersImport = () => {
               </Box>
 
               {(previewData.newMembers || []).length > 0 && (
-                <TableContainer component={Paper} sx={{ mb: 2 }}>
+                <TableContainer component={Paper} sx={{ mb: 2, overflowX: 'auto' }}>
                   <Table size="small">
                     <TableHead>
                       <TableRow>

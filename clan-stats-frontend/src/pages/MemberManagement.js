@@ -47,8 +47,20 @@ const MemberManagement = () => {
   }, [message, error]);
 
   useEffect(() => {
+    if (!user) return;
     fetchClans();
-  }, []);
+  }, [user]);
+
+  // Storage helpers for last selected clan
+  const LAST_CLAN_KEY = 'clanTools:lastSelectedClan';
+  const readSavedClan = () => sessionStorage.getItem(LAST_CLAN_KEY) || localStorage.getItem(LAST_CLAN_KEY);
+  const saveSelectedClan = (id) => {
+    try {
+      sessionStorage.setItem(LAST_CLAN_KEY, id);
+      localStorage.setItem(LAST_CLAN_KEY, id);
+    } catch (e) {}
+    setSelectedClan(id);
+  };
 
   useEffect(() => {
     if (selectedClan) {
@@ -59,10 +71,18 @@ const MemberManagement = () => {
 
   const fetchClans = async () => {
     try {
-      const response = await api.clan.getMyClans();
+      // If admin, fetch all clans; otherwise fetch accessible clans
+      const ADMIN_EMAIL = 'lucido.kristian@gmail.com';
+      const isAdmin = user && (user.isAdmin || user.email === ADMIN_EMAIL);
+      const response = isAdmin ? await api.clan.getAllAdmin() : await api.clan.getMyClans();
       setClans(response);
       if (response.length > 0) {
-        setSelectedClan(response[0]._id);
+        const saved = readSavedClan();
+        if (saved && response.some(c => c._id === saved)) {
+          setSelectedClan(saved);
+        } else {
+          setSelectedClan(response[0]._id);
+        }
       }
     } catch (error) {
       console.error('Error fetching clans:', error);
@@ -219,17 +239,17 @@ const MemberManagement = () => {
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
         <Typography variant="h4" component="h1">
           Clan Roster (Max 40)
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexDirection: { xs: 'column', sm: 'row' }, width: { xs: '100%', sm: 'auto' } }}>
           <TextField
             select
             label="Select Clan"
             value={selectedClan}
-            onChange={(e) => setSelectedClan(e.target.value)}
-            sx={{ width: 200 }}
+            onChange={(e) => saveSelectedClan(e.target.value)}
+            sx={{ width: { xs: '100%', sm: 200 } }}
             size="small"
           >
             {clans.map((clan) => (
@@ -243,6 +263,7 @@ const MemberManagement = () => {
             startIcon={<SaveIcon />}
             onClick={handleSaveAll}
             disabled={saving}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </Button>
@@ -300,7 +321,7 @@ const MemberManagement = () => {
         </Box>
       ) : (
         <Paper sx={{ p: 2, overflowX: 'auto' }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr 1fr 1fr 1fr 50px', gap: 1, alignItems: 'center', mb: 1, fontWeight: 'bold', px: 1 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr 1fr 1fr 1fr 50px', gap: 1, alignItems: 'center', mb: 1, fontWeight: 'bold', px: 1, minWidth: { xs: '700px', sm: '1000px' } }}>
             <Box>#</Box>
             <Box>Nickname *</Box>
             <Box>Game ID *</Box>
@@ -319,7 +340,8 @@ const MemberManagement = () => {
                 alignItems: 'center',
                 bgcolor: index % 2 === 0 ? 'action.hover' : 'background.paper',
                 p: 1,
-                borderRadius: 1
+                borderRadius: 1,
+                minWidth: { xs: '700px', sm: '1000px' }
               }}>
                 <Typography variant="body2" color="text.secondary">{index + 1}</Typography>
                 <TextField

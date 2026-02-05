@@ -94,9 +94,9 @@ const ResultsManualImport = () => {
   };
 
   const handlePreview = () => {
-    const validResults = results.filter(r => 
-      r.memberName.trim() && 
-      r.score.trim() && 
+    const validResults = results.filter(r =>
+      r.memberName.trim() &&
+      r.score.trim() &&
       parseInt(r.score) > 0
     );
 
@@ -113,16 +113,16 @@ const ResultsManualImport = () => {
     setError('');
     setMessage('');
 
-    const validResults = results.filter(r => 
-      r.memberName.trim() && 
-      r.score.trim() && 
+    const validResults = results.filter(r =>
+      r.memberName.trim() &&
+      r.score.trim() &&
       parseInt(r.score) > 0
     );
 
     try {
       const importPromises = validResults.map(async (result) => {
         // Find member by name
-        const member = members.find(m => 
+        const member = members.find(m =>
           m.playerName.toLowerCase() === result.memberName.trim().toLowerCase()
         );
 
@@ -202,8 +202,8 @@ const ResultsManualImport = () => {
             </Grid>
           </Grid>
 
-          <TableContainer component={Paper} sx={{ mb: 2 }}>
-            <Table>
+          <TableContainer component={Paper} sx={{ mb: 2, overflowX: 'auto' }}>
+            <Table size="small">
               <TableHead>
                 <TableRow>
                   <TableCell>Member Name</TableCell>
@@ -253,11 +253,12 @@ const ResultsManualImport = () => {
             </Table>
           </TableContainer>
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
             <Button
               variant="outlined"
               startIcon={<Add />}
               onClick={addResultRow}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
             >
               Add Result Row
             </Button>
@@ -265,6 +266,7 @@ const ResultsManualImport = () => {
               variant="contained"
               onClick={handlePreview}
               disabled={!selectedClan}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
             >
               Preview Import
             </Button>
@@ -279,7 +281,7 @@ const ResultsManualImport = () => {
           <Typography variant="body2" paragraph>
             Ready to import {results.filter(r => r.memberName.trim() && r.score.trim()).length} results:
           </Typography>
-          <TableContainer component={Paper}>
+          <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
             <Table size="small">
               <TableHead>
                 <TableRow>

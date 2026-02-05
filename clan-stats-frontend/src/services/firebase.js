@@ -4,7 +4,7 @@
  */
 
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, getIdTokenResult } from 'firebase/auth';
 
 // Firebase configuration - Replace with your actual config from Firebase Console
 const firebaseConfig = {
@@ -67,6 +67,21 @@ export const getIdToken = async () => {
         return token;
     } catch (error) {
         console.error('Get token error:', error);
+        return null;
+    }
+};
+
+/**
+ * Get ID token result (includes custom claims)
+ */
+export const getIdTokenResultForUser = async () => {
+    const user = auth.currentUser;
+    if (!user) return null;
+    try {
+        const result = await getIdTokenResult(user, true);
+        return result;
+    } catch (err) {
+        console.error('GetIdTokenResult error:', err);
         return null;
     }
 };

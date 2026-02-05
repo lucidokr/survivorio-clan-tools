@@ -81,6 +81,13 @@ export const clanAPI = {
         return handleResponse(response);
     },
 
+    async getAllAdmin(activeOnly = true) {
+        const response = await fetch(`${API_URL}/api/clan/all?activeOnly=${activeOnly}`, {
+            headers: getAuthHeaders()
+        });
+        return handleResponse(response);
+    },
+
     async getById(id) {
         const response = await fetch(`${API_URL}/api/clan/${id}`, {
             headers: getAuthHeaders()

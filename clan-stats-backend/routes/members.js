@@ -14,12 +14,13 @@ const filterUndefined = (obj) => {
   return filtered;
 };
 
-// Helper to verify clan ownership
-const verifyClanAccess = async (clanId, userId) => {
+// Helper to verify clan ownership (owners or admins)
+const verifyClanAccess = async (clanId, userId, isAdmin = false) => {
   const clan = await ClanService.findById(clanId);
   if (!clan) {
     return { error: 'Clan not found', status: 404 };
   }
+  if (isAdmin) return { clan };
   if (clan.ownerId !== userId) {
     return { error: 'You do not have permission to access this clan', status: 403 };
   }
@@ -35,9 +36,9 @@ router.post('/invite', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Verify: sei owner del clan?
+    // Verify: sei owner del clan? admins allowed
     const clan = await ClanService.findById(clanId);
-    if (!clan || clan.ownerId !== req.user.uid) {
+    if (!clan || (clan.ownerId !== req.user.uid && !req.user?.isAdmin)) {
       return res.status(403).json({ error: 'Only clan owner can invite members' });
     }
 
@@ -147,7 +148,8 @@ router.get('/clan/:clanId', authMiddleware, async (req, res) => {
     const access = await ClanService.verifyUserAccess(
       clanId,
       req.user.uid,
-      req.user.email
+      req.user.email,
+      req.user?.isAdmin
     );
 
     if (!access.canAccess) {
@@ -179,7 +181,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 
     // Verify clan access
-    const access = await verifyClanAccess(existingMember.clanId, req.user.uid);
+    const access = await verifyClanAccess(existingMember.clanId, req.user.uid, req.user?.isAdmin);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
     }
@@ -210,7 +212,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     }
 
     // Verify clan access
-    const access = await verifyClanAccess(member.clanId, req.user.uid);
+    const access = await verifyClanAccess(member.clanId, req.user.uid, req.user?.isAdmin);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
     }
@@ -234,7 +236,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
     }
 
     // Verify clan access
-    const access = await verifyClanAccess(member.clanId, req.user.uid);
+    const access = await verifyClanAccess(member.clanId, req.user.uid, req.user?.isAdmin);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
     }
@@ -256,7 +258,7 @@ router.post('/bulk', authMiddleware, async (req, res) => {
     }
 
     // Verify clan access
-    const access = await verifyClanAccess(clanId, req.user.uid);
+    const access = await verifyClanAccess(clanId, req.user.uid, req.user?.isAdmin);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
     }

@@ -6,9 +6,9 @@ const OCRService = require('../services/ocrService');
 const stringSimilarity = require('string-similarity');
 const { authMiddleware } = require('../middleware/auth');
 
-// Helper to verify clan access (owner or invited member)
-const verifyClanAccess = async (clanId, userId, userEmail) => {
-  const access = await ClanService.verifyUserAccess(clanId, userId, userEmail);
+// Helper to verify clan access (owner, invited member or admin)
+const verifyClanAccess = async (clanId, userId, userEmail, isAdmin = false) => {
+  const access = await ClanService.verifyUserAccess(clanId, userId, userEmail, isAdmin);
 
   if (!access.canAccess) {
     return { error: 'Not authorized to access this clan', status: 403 };
@@ -52,7 +52,7 @@ router.post('/extract', authMiddleware, memoryUpload.array('screenshot', 6), asy
 
     // Verify clan access
     if (clanId) {
-      const access = await verifyClanAccess(clanId, req.user.uid, req.user.email);
+      const access = await verifyClanAccess(clanId, req.user.uid, req.user.email, req.user?.isAdmin);
       if (access.error) {
         return res.status(access.status).json({ error: access.error });
       }
@@ -162,7 +162,7 @@ router.post('/bulk', authMiddleware, async (req, res) => {
     }
 
     // Verify clan access
-    const access = await verifyClanAccess(clanId, req.user.uid, req.user.email);
+    const access = await verifyClanAccess(clanId, req.user.uid, req.user.email, req.user?.isAdmin);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
     }
@@ -209,7 +209,7 @@ router.post('/upload', authMiddleware, memoryUpload.single('screenshot'), async 
     }
 
     // Verify clan access
-    const access = await verifyClanAccess(clanId, req.user.uid, req.user.email);
+    const access = await verifyClanAccess(clanId, req.user.uid, req.user.email, req.user?.isAdmin);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
     }
@@ -273,7 +273,7 @@ router.post('/manual', authMiddleware, async (req, res) => {
     const { memberId, clanId, score, week } = req.body;
 
     // Verify clan access
-    const access = await verifyClanAccess(clanId, req.user.uid, req.user.email);
+    const access = await verifyClanAccess(clanId, req.user.uid, req.user.email, req.user?.isAdmin);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
     }
@@ -303,7 +303,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
     // Verify clan access
     if (clanId) {
-      const access = await verifyClanAccess(clanId, req.user.uid);
+      const access = await verifyClanAccess(clanId, req.user.uid, req.user.email, req.user?.isAdmin);
       if (access.error) {
         return res.status(access.status).json({ error: access.error });
       }
@@ -332,7 +332,7 @@ router.get('/compare', authMiddleware, async (req, res) => {
     if (!clanId || !week) return res.status(400).json({ error: 'Missing parameters' });
 
     // Verify clan access
-    const access = await verifyClanAccess(clanId, req.user.uid, req.user.email);
+    const access = await verifyClanAccess(clanId, req.user.uid, req.user.email, req.user?.isAdmin);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
     }
@@ -488,7 +488,7 @@ router.get('/compare', authMiddleware, async (req, res) => {
 router.get('/clan/:clanId/week/:week', authMiddleware, async (req, res) => {
   try {
     // Verify clan access
-    const access = await verifyClanAccess(req.params.clanId, req.user.uid, req.user.email);
+    const access = await verifyClanAccess(req.params.clanId, req.user.uid, req.user.email, req.user?.isAdmin);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
     }
@@ -520,7 +520,7 @@ router.get('/statistics/:clanId', authMiddleware, async (req, res) => {
     const numWeeks = parseInt(weeks);
 
     // Verify clan access
-    const access = await verifyClanAccess(clanId, req.user.uid, req.user.email);
+    const access = await verifyClanAccess(clanId, req.user.uid, req.user.email, req.user?.isAdmin);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
     }
@@ -574,6 +574,7 @@ router.get('/statistics/:clanId', authMiddleware, async (req, res) => {
       // Use member info if available, otherwise use playerName from result
       const playerName = r.member?.playerName || r.playerName || 'Unknown';
       const isActive = r.member?.isActive ?? false;
+      const clanName = r.member?.clan?.name || null;
 
       const memberId = r.memberId;
       if (!memberMap.has(memberId)) {
@@ -581,6 +582,7 @@ router.get('/statistics/:clanId', authMiddleware, async (req, res) => {
           memberId,
           playerName,
           isActive,
+          clanName,
           weeklyScores: []
         });
       }
@@ -614,6 +616,7 @@ router.get('/statistics/:clanId', authMiddleware, async (req, res) => {
       memberGrowth.push({
         memberId: member.memberId,
         playerName: member.playerName,
+        clanName: member.clanName || null,
         isActive: member.isActive,
         weeklyScores: member.weeklyScores,
         avgImprovement,

@@ -120,6 +120,7 @@ function changeWeek(weekStr, delta) {
 
 const ResultUpload = () => {
   const [clans, setClans] = useState([]);
+  const { user } = useAuth();
   const [selectedClan, setSelectedClan] = useState('');
   const [week, setWeek] = useState(getCurrentWeek());
   const [members, setMembers] = useState([]);
@@ -190,8 +191,20 @@ const ResultUpload = () => {
   }, [message, error]);
 
   useEffect(() => {
+    if (!user) return;
     fetchClans();
-  }, []);
+  }, [user]);
+
+  // Persist last selected clan and week
+  const LAST_CLAN_KEY = 'clanTools:lastSelectedClan';
+  const LAST_WEEK_KEY = 'clanTools:lastSelectedWeek';
+  const readSaved = (key) => sessionStorage.getItem(key) || localStorage.getItem(key);
+  const saveLocal = (key, value) => {
+    try {
+      sessionStorage.setItem(key, value);
+      localStorage.setItem(key, value);
+    } catch (e) {}
+  };
 
   const calculateTotalScore = useCallback((memberList) => {
     // Calculate total score from top 30 members
@@ -292,10 +305,21 @@ const ResultUpload = () => {
 
   const fetchClans = async () => {
     try {
-      const response = await api.clan.getMyClans();
+      // Admins can select any clan; regular users only accessible clans
+      const ADMIN_EMAIL = 'lucido.kristian@gmail.com';
+      const isAdmin = user && (user.isAdmin || user.email === ADMIN_EMAIL);
+      const response = isAdmin ? await api.clan.getAllAdmin() : await api.clan.getMyClans();
       setClans(response);
       if (response.length > 0) {
-        setSelectedClan(response[0]._id);
+        const savedClan = readSaved(LAST_CLAN_KEY);
+        if (savedClan && response.some(c => c._id === savedClan)) {
+          setSelectedClan(savedClan);
+        } else {
+          setSelectedClan(response[0]._id);
+        }
+
+        const savedWeek = readSaved(LAST_WEEK_KEY);
+        if (savedWeek) setWeek(savedWeek);
       }
     } catch (err) {
       console.error('Error fetching clans:', err);
@@ -400,13 +424,13 @@ const ResultUpload = () => {
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       {/* Header with Clan selector and Week navigation */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
         <TextField
           select
           label="Select Clan"
           value={selectedClan}
-          onChange={(e) => setSelectedClan(e.target.value)}
-          sx={{ width: 180 }}
+          onChange={(e) => { setSelectedClan(e.target.value); saveLocal(LAST_CLAN_KEY, e.target.value); }}
+          sx={{ width: { xs: '100%', sm: 220 } }}
           size="small"
         >
           {clans.map((clan) => (
@@ -417,18 +441,18 @@ const ResultUpload = () => {
         </TextField>
 
         {/* Week Navigation */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
           <IconButton onClick={() => setWeek(changeWeek(week, -1))} size="small">
             <ArrowBackIcon />
           </IconButton>
-          <Box sx={{ textAlign: 'center', minWidth: 200 }}>
+          <Box sx={{ textAlign: 'center', minWidth: { xs: 'auto', sm: 200 } }}>
             <TextField
               type="week"
               value={week}
-              onChange={(e) => setWeek(e.target.value)}
+              onChange={(e) => { setWeek(e.target.value); saveLocal(LAST_WEEK_KEY, e.target.value); }}
               size="small"
               InputLabelProps={{ shrink: true }}
-              sx={{ width: 150 }}
+              sx={{ width: { xs: 180, sm: 150 } }}
             />
             <Typography variant="caption" display="block" color="text.secondary">
               {weekRange.start} → {weekRange.end}
@@ -440,13 +464,14 @@ const ResultUpload = () => {
         </Box>
 
         {/* Actions */}
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
           <Button
             component="label"
             variant="outlined"
             size="small"
             startIcon={ocrLoading ? <CircularProgress size={16} /> : <CloudUploadIcon />}
             disabled={ocrLoading || loading}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
           >
             Upload OCR
             <VisuallyHiddenInput type="file" onChange={handleScreenshotUpload} accept="image/*" multiple />
@@ -457,6 +482,7 @@ const ResultUpload = () => {
             startIcon={<SaveIcon />}
             onClick={handleSaveAll}
             disabled={loading || ocrLoading}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
           >
             Save
           </Button>
@@ -467,8 +493,8 @@ const ResultUpload = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       {/* Stats Bar - Boss Level and Total Score */}
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+      <Paper sx={{ p: 2, mb: 2, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap', justifyContent: 'space-between' }}>
           <Box>
             <Typography variant="caption" color="text.secondary">Boss Level</Typography>
             <TextField
@@ -513,31 +539,33 @@ const ResultUpload = () => {
           </Box>
         </Box>
 
-        {/* Sort Options */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="caption" color="text.secondary">Sort by:</Typography>
-          <ToggleButtonGroup
-            value={sortBy}
-            exclusive
-            onChange={(e, val) => val && setSortBy(val)}
-            size="small"
-          >
-            <ToggleButton value="name">
-              <Tooltip title="Sort by Name">
-                <SortByAlphaIcon fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
-            <ToggleButton value="score">
-              <Tooltip title="Sort by Score">
-                <LeaderboardIcon fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
-            <ToggleButton value="improvement">
-              <Tooltip title="Sort by Avg Improvement">
-                <TrendingUpIcon fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
-          </ToggleButtonGroup>
+        {/* Sort Options - moved to its own row aligned to right */}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="caption" color="text.secondary">Sort by:</Typography>
+            <ToggleButtonGroup
+              value={sortBy}
+              exclusive
+              onChange={(e, val) => val && setSortBy(val)}
+              size="small"
+            >
+              <ToggleButton value="name">
+                <Tooltip title="Sort by Name">
+                  <SortByAlphaIcon fontSize="small" />
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="score">
+                <Tooltip title="Sort by Score">
+                  <LeaderboardIcon fontSize="small" />
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="improvement">
+                <Tooltip title="Sort by Avg Improvement">
+                  <TrendingUpIcon fontSize="small" />
+                </Tooltip>
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
         </Box>
       </Paper>
 
@@ -547,7 +575,7 @@ const ResultUpload = () => {
         </Box>
       ) : (
         <Paper sx={{ p: 2, overflowX: 'auto' }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '40px 200px 100px 70px 90px 100px', gap: 1, alignItems: 'center', mb: 1, fontWeight: 'bold', px: 1, minWidth: 650 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '40px 200px 100px 70px 90px 100px', gap: 1, alignItems: 'center', mb: 1, fontWeight: 'bold', px: 1, minWidth: 900 }}>
             <Box>#</Box>
             <Box>Member</Box>
             <Box>Score</Box>
@@ -582,7 +610,7 @@ const ResultUpload = () => {
                   p: 1,
                   borderRadius: 1,
                   borderBottom: '1px solid #eee',
-                  minWidth: 650,
+                  minWidth: 900,
                   opacity: member.isActive === false ? 0.6 : 1
                 }}>
                   <Typography variant="body2" color="text.secondary">{displayIndex + 1}</Typography>

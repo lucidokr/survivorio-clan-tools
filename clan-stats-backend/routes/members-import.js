@@ -7,12 +7,13 @@ const { MemberService, ClanService } = require('../services/firebaseService');
 const CoordinateOCRService = require('../services/coordinateOCRService');
 const { authMiddleware } = require('../middleware/auth');
 
-// Helper to verify clan ownership
-const verifyClanAccess = async (clanId, userId) => {
+// Helper to verify clan ownership (owners or admins)
+const verifyClanAccess = async (clanId, userId, isAdmin = false) => {
   const clan = await ClanService.findById(clanId);
   if (!clan) {
     return { error: 'Clan not found', status: 404 };
   }
+  if (isAdmin) return { clan };
   if (clan.ownerId !== userId) {
     return { error: 'You do not have permission to access this clan', status: 403 };
   }
@@ -44,7 +45,7 @@ router.post('/preview', authMiddleware, upload.single('screenshot'), async (req,
     }
 
     // Verify clan access
-    const access = await verifyClanAccess(clanId, req.user.uid);
+    const access = await verifyClanAccess(clanId, req.user.uid, req.user?.isAdmin);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
     }
@@ -109,7 +110,7 @@ router.post('/import', authMiddleware, async (req, res) => {
     }
 
     // Verify clan access
-    const access = await verifyClanAccess(clanId, req.user.uid);
+    const access = await verifyClanAccess(clanId, req.user.uid, req.user?.isAdmin);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
     }

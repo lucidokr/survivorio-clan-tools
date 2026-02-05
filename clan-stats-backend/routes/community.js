@@ -175,12 +175,16 @@ router.get('/:id/stats', authMiddleware, async (req, res) => {
             if (!weeksToAnalyze.includes(r.week)) return;
             const playerName = r.member?.playerName || r.playerName || 'Unknown';
             const memberId = r.memberId;
+            const clanName = r.member?.clan?.name || null;
+            const isActive = r.member?.isActive ?? false;
+
             if (!memberMap.has(memberId)) {
-                memberMap.set(memberId, { memberId, playerName, weeklyScores: [] });
+                memberMap.set(memberId, { memberId, playerName, clanName, isActive, weeklyScores: [] });
             }
             memberMap.get(memberId).weeklyScores.push({
                 week: r.week,
                 score: r.score,
+                bossLevel: r.bossLevel || null,
                 missedBossDay1: r.missedBossDay1 || false,
                 missedBossDay2: r.missedBossDay2 || false,
                 missedBossDay3: r.missedBossDay3 || false
@@ -188,13 +192,15 @@ router.get('/:id/stats', authMiddleware, async (req, res) => {
         });
 
         const memberGrowth = [];
+        const latestWeek = weeksToAnalyze[weeksToAnalyze.length - 1];
         memberMap.forEach(m => {
             m.weeklyScores.sort((a, b) => a.week.localeCompare(b.week));
             const improvements = [];
             for (let i = 1; i < m.weeklyScores.length; i++) improvements.push(m.weeklyScores[i].score - m.weeklyScores[i - 1].score);
             const avgImprovement = improvements.length > 0 ? Math.round(improvements.reduce((a, b) => a + b, 0) / improvements.length) : null;
             const totalGrowth = m.weeklyScores.length >= 2 ? m.weeklyScores[m.weeklyScores.length - 1].score - m.weeklyScores[0].score : 0;
-            memberGrowth.push({ memberId: m.memberId, playerName: m.playerName, weeklyScores: m.weeklyScores, avgImprovement, totalGrowth });
+            const bossLevel = latestWeek ? (m.weeklyScores.find(s => s.week === latestWeek)?.bossLevel || null) : null;
+            memberGrowth.push({ memberId: m.memberId, playerName: m.playerName, clanName: m.clanName || null, isActive: m.isActive !== false, bossLevel, weeklyScores: m.weeklyScores, avgImprovement, totalGrowth });
         });
 
         res.json({ weeklyTotals, weeklyAverages, clanGrowth, memberGrowth, availableWeeks: weeksToAnalyze });

@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { onAuthChange, signInWithGoogle, logOut, getIdToken } from '../services/firebase';
+import { onAuthChange, signInWithGoogle, logOut, getIdToken, getIdTokenResultForUser } from '../services/firebase';
 
 const AuthContext = createContext();
 
@@ -26,11 +26,16 @@ export const AuthProvider = ({ children }) => {
             if (firebaseUser) {
                 // User is signed in
                 const idToken = await getIdToken();
+                // Read custom claims to determine admin status
+                const tokenResult = await getIdTokenResultForUser();
+                const isAdmin = !!(tokenResult && tokenResult.claims && tokenResult.claims.admin === true);
+
                 setUser({
                     uid: firebaseUser.uid,
                     email: firebaseUser.email,
                     name: firebaseUser.displayName,
-                    picture: firebaseUser.photoURL
+                    picture: firebaseUser.photoURL,
+                    isAdmin
                 });
                 setToken(idToken);
 
